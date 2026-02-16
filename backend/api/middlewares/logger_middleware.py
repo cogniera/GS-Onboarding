@@ -2,7 +2,10 @@ from collections.abc import Callable
 from typing import Any
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
+import time 
+from datetime import datetime, timezone
 
+from backend.utils.logging import logger as log
 
 class LoggerMiddleware(BaseHTTPMiddleware):
     async def dispatch(
@@ -18,5 +21,26 @@ class LoggerMiddleware(BaseHTTPMiddleware):
         :return: Response from endpoint
         """
         # TODO:(Member) Finish implementing this method
+
+        start_time = time.perf_counter()
+        request_time = datetime.now(timezone.utc).isoformat()
+
+        method = request.method
+        url = str(request.url)
+        query_params = dict(request.query_params)
+
         response = await call_next(request)
+
+        duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
+
+        log.info(
+            "Request | time={} | method={} | url={} | query={} | status={} | duration_ms={:.2f}",
+            request_time,
+            method,
+            url,
+            query_params,
+            response.status_code,
+            duration_ms,
+        )
+
         return response
