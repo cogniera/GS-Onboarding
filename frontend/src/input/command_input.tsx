@@ -10,8 +10,30 @@ const CommandInput = ({ setCommands }: CommandInputProp) => {
   const [selectedCommand, setSelectedCommand] = useState<MainCommandResponse | null>(null);
   const [parameters, setParameters] = useState<{ [key: string]: string }>({});
   // TODO: (Member) Setup anymore states if necessary
-
+  const [parameters, setParameters] = useState<Record<string, string>>({});
+  const [loadingMainCommands, setLoadingMainCommands] = useState(false);
   // TODO: (Member) Fetch MainCommands in a useEffect
+  useEffect(() => {
+    const run = async () => {
+      try {
+        setLoadingMainCommands(true);
+        const res = await getMainCommands(); // expects { data: MainCommandResponse[] }
+        setMainCommands(res.data);
+
+        // optionally auto-select first command
+        if (res.data.length > 0) {
+          setSelectedCommand(res.data[0]);
+          setParameters({});
+        }
+      } catch (err) {
+        console.error("Failed to fetch main commands:", err);
+      } finally {
+        setLoadingMainCommands(false);
+      }
+    };
+
+    run();
+  }, []);
 
   const handleParameterChange = (param: string, value: string): void => {
     setParameters((prev) => ({
@@ -21,8 +43,38 @@ const CommandInput = ({ setCommands }: CommandInputProp) => {
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    // TODO:(Member) Submit to your post endpoint 
-  }
+    // TODO:(Member) Submit to your post endpoint
+    e.preventDefault();
+    if (!selectedCommand) return;
+
+    // Build params string in the exact order defined by selectedCommand.params
+    const paramKeys = (selectedCommand.params ?? "")
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+
+    const paramsString = paramKeys.map((k) => parameters[k] ?? "").join(",");
+
+    try {
+      // Payload shape depends on your backend CommandRequest.
+      // Common shape: { main_command_id, params }
+      const created = await createCommand({
+        main_command_id: selectedCommand.id,
+        params: paramsString,
+      });
+
+      // update UI list (append created command)
+      setCommands((prev) => [...prev, created.data]);
+
+      // reset inputs
+      setParameters({});
+    } catch (err) {
+      console.error("Failed to create command:", err);
+    }
+  };
+
+  const paramList =
+    selectedCommand?.params?.split(",").map((p) => p.trim()).filter(Boolean) ?? [];
 
   return (
     <>
